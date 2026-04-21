@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crop Yield Prediction System</title>
+  <meta
+    name="description"
+    content="A working crop yield prediction website with backend model training, risk scoring, visual analytics, and dataset-driven predictions."
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">AI + Agriculture</p>
+        <h1>Crop Yield Prediction System</h1>
+      </div>
+      <div class="header-actions">
+        <div class="header-pill">Working Flask backend + live prediction API</div>
+        <div class="user-pill">
+          <span>{{ current_user.full_name }}</span>
+          <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+      </div>
+    </header>
+
+    <section class="hero-grid">
+      <article class="hero-card accent">
+        <p class="eyebrow">Project Goal</p>
+        <h2>Predict crop yield from environmental and soil conditions.</h2>
+        <p>
+          This application trains regression models on a dataset, compares model
+          performance, predicts yield from user input, and classifies overall
+          agricultural risk using a weighted scoring method.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#predictor">Try Live Predictor</a>
+        </div>
+      </article>
+
+      <article class="hero-card stats">
+        <div class="stat-tile">
+          <span>Dataset Rows</span>
+          <strong>{{ summary.dataset_rows }}</strong>
+        </div>
+        <div class="stat-tile">
+          <span>Crops Covered</span>
+          <strong>{{ summary.crop_count }}</strong>
+        </div>
+        <div class="stat-tile">
+          <span>Average Yield</span>
+          <strong>{{ summary.avg_yield }} t/ha</strong>
+        </div>
+        <div class="stat-tile">
+          <span>Best Model</span>
+          <strong>{{ summary.best_model }} (R2 {{ summary.best_r2 }})</strong>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Model Evaluation</p>
+          <h2>Trained and compared on the dataset</h2>
+        </div>
+      </div>
+      <div class="metrics-grid">
+        {% for result in model_results %}
+        <article class="metric-card">
+          <h3>{{ result.name }}</h3>
+          <p><strong>RMSE:</strong> {{ result.rmse }}</p>
+          <p><strong>MAE:</strong> {{ result.mae }}</p>
+          <p><strong>R2 Score:</strong> {{ result.r2 }}</p>
+        </article>
+        {% endfor %}
+      </div>
+      <div class="chart-shell">
+        {{ figures.comparison|safe }}
+      </div>
+    </section>
+
+    <section class="panel" id="predictor">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Live Prediction</p>
+          <h2>Enter project inputs and get real output</h2>
+        </div>
+        <div class="formula-chip">Risk Score = Sum(Weight * Factor Score)</div>
+      </div>
+
+      <div class="predictor-layout">
+        <form id="prediction-form" class="form-card">
+          <label class="full-width">
+            Select Dataset Record
+            <select name="dataset_row_id" id="dataset-row-select">
+              <option value="">Use only live input</option>
+              {% for record in dataset_records %}
+              <option value="{{ record.row_id }}">{{ record.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <p class="help-text">
+            Choose a row from the active CSV to auto-fill the form and merge its original yield value with the live prediction.
+          </p>
+
+          <div class="form-grid">
+            <label>
+              Crop Type
+              <select name="crop_type">
+                {% for crop in options.crop_types %}
+                <option value="{{ crop }}">{{ crop }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label>
+              Region
+              <select name="region">
+                {% for region in options.regions %}
+                <option value="{{ region }}">{{ region }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label>
+              Soil Type
+              <select name="soil_type">
+                {% for soil in options.soil_types %}
+                <option value="{{ soil }}">{{ soil }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label>
+              Rainfall (mm)
+              <input type="number" step="0.1" name="rainfall_mm" value="850">
+            </label>
+
+            <label>
+              Temperature (C)
+              <input type="number" step="0.1" name="temperature_c" value="27">
+            </label>
+
+            <label>
+              Humidity (%)
+              <input type="number" step="0.1" name="humidity_pct" value="72">
+            </label>
+
+            <label>
+              Soil pH
+              <input type="number" step="0.1" name="soil_ph" value="6.4">
+            </label>
+
+            <label>
+              Nitrogen (kg/ha)
+              <input type="number" step="0.1" name="nitrogen_kg_ha" value="96">
+            </label>
+
+            <label>
+              Phosphorus (kg/ha)
+              <input type="number" step="0.1" name="phosphorus_kg_ha" value="54">
+            </label>
+
+            <label>
+              Potassium (kg/ha)
+              <input type="number" step="0.1" name="potassium_kg_ha" value="67">
+            </label>
+
+            <label>
+              Pest Risk (0-10)
+              <input type="number" step="0.1" min="0" max="10" name="pest_risk" value="3.5">
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="button primary">Predict Yield</button>
+            <button type="button" id="fill-example" class="button secondary">Load Example</button>
+          </div>
+        </form>
+
+        <aside class="result-card">
+          <p class="eyebrow">Prediction Output</p>
+          <h3 id="yield-value">Waiting for input</h3>
+          <p id="yield-band" class="yield-band">Submit the form to calculate yield potential.</p>
+
+          <div class="merge-box">
+            <span>Merged Yield Output</span>
+            <strong id="merged-yield">-</strong>
+            <p id="merged-note">Select a dataset record if you want to blend CSV value with live prediction.</p>
+            <p id="dataset-context" class="dataset-context">No dataset record selected.</p>
+          </div>
+
+          <div class="risk-box">
+            <span>Risk Level</span>
+            <strong id="risk-level">-</strong>
+            <p id="risk-score">Risk score: -</p>
+          </div>
+
+          <div class="factor-list">
+            <div><span>Rainfall Deviation</span><strong id="factor-rainfall">-</strong></div>
+            <div><span>Temperature Stress</span><strong id="factor-temperature">-</strong></div>
+            <div><span>Soil Condition</span><strong id="factor-soil">-</strong></div>
+            <div><span>Pest Risk</span><strong id="factor-pest">-</strong></div>
+          </div>
+
+          <div>
+            <p class="eyebrow">Recommendations</p>
+            <ul id="recommendations" class="recommendations">
+              <li>Your recommendations will appear here after prediction.</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="panel charts-grid">
+      <div class="chart-card">{{ figures.yield_by_crop|safe }}</div>
+      <div class="chart-card">{{ figures.risk_distribution|safe }}</div>
+      <div class="chart-card full">{{ figures.trend|safe }}</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Dataset Preview</p>
+          <h2>Example records used for training</h2>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Crop</th>
+              <th>Region</th>
+              <th>Soil</th>
+              <th>Rainfall</th>
+              <th>Temp</th>
+              <th>Humidity</th>
+              <th>Yield</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in latest_rows %}
+            <tr>
+              <td>{{ row.crop_type }}</td>
+              <td>{{ row.region }}</td>
+              <td>{{ row.soil_type }}</td>
+              <td>{{ row.rainfall_mm }}</td>
+              <td>{{ row.temperature_c }}</td>
+              <td>{{ row.humidity_pct }}</td>
+              <td>{{ row.yield_ton_per_hectare }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    window.cropAppDefaults = {
+      crop_type: "Rice",
+      region: "South",
+      soil_type: "Loamy",
+      rainfall_mm: 1100,
+      temperature_c: 28,
+      humidity_pct: 80,
+      soil_ph: 6.2,
+      nitrogen_kg_ha: 105,
+      phosphorus_kg_ha: 58,
+      potassium_kg_ha: 72,
+      pest_risk: 2.8
+    };
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
