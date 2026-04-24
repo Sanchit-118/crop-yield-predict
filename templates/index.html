@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crop Yield Prediction System</title>
+  <meta
+    name="description"
+    content="A working crop yield prediction website with backend model training, risk scoring, visual analytics, and dataset-driven predictions."
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="floating-user-menu">
+    <button type="button" id="user-menu-toggle" class="floating-user-toggle" aria-label="Open user menu">
+      {{ current_user.full_name[:1] if current_user.full_name else 'U' }}
+    </button>
+    <div id="user-menu-dropdown" class="floating-user-dropdown">
+      <strong>{{ current_user.full_name }}</strong>
+      <a href="{{ url_for('logout') }}" data-i18n="logout">Logout</a>
+    </div>
+  </div>
+
+  <div class="page-shell">
+    <header class="site-header">
+      <div>
+        <p class="eyebrow" data-i18n="eyebrow_ai_agri">AI + Agriculture</p>
+        <h1 data-i18n="title_main">Crop Yield Prediction System</h1>
+      </div>
+      <div class="header-actions">
+        <div class="header-controls">
+          <label class="header-control-group">
+            <span data-i18n="language">Language</span>
+            <select id="language-select" class="header-select">
+              <option value="en">English</option>
+              <option value="hi">हिंदी</option>
+            </select>
+          </label>
+          <label class="header-control-group">
+            <span data-i18n="theme">Theme</span>
+            <select id="theme-select" class="header-select">
+              <option value="light" data-i18n="light_mode">Light Mode</option>
+              <option value="dark" data-i18n="dark_mode">Dark Mode</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <section class="hero-grid">
+      <article class="hero-card accent">
+        <p class="eyebrow" data-i18n="project_goal">Project Goal</p>
+        <h2 data-i18n="hero_heading">Predict crop yield from environmental and soil conditions.</h2>
+        <p data-i18n="hero_text">
+          This application trains regression models on a dataset, compares model
+          performance, predicts yield from user input, and classifies overall
+          agricultural risk using a weighted scoring method.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#predictor" data-i18n="try_predictor">Try Live Predictor</a>
+        </div>
+      </article>
+
+      <article class="hero-card stats">
+        <div class="stat-tile">
+          <span data-i18n="dataset_rows">Dataset Rows</span>
+          <strong>{{ summary.dataset_rows }}</strong>
+        </div>
+        <div class="stat-tile">
+          <span data-i18n="crops_covered">Crops Covered</span>
+          <strong>{{ summary.crop_count }}</strong>
+        </div>
+        <div class="stat-tile">
+          <span data-i18n="average_yield">Average Yield</span>
+          <strong>{{ summary.avg_yield }} t/ha</strong>
+        </div>
+        <div class="stat-tile">
+          <span data-i18n="best_model">Best Model</span>
+          <strong>{{ summary.best_model }} (R2 {{ summary.best_r2 }})</strong>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow" data-i18n="model_evaluation">Model Evaluation</p>
+          <h2 data-i18n="trained_compared">Trained and compared on the dataset</h2>
+        </div>
+      </div>
+      <div class="metrics-grid">
+        {% for result in model_results %}
+        <article class="metric-card">
+          <h3>{{ result.name }}</h3>
+          <p><strong>RMSE:</strong> {{ result.rmse }}</p>
+          <p><strong>MAE:</strong> {{ result.mae }}</p>
+          <p><strong>R2 Score:</strong> {{ result.r2 }}</p>
+        </article>
+        {% endfor %}
+      </div>
+      <div class="chart-shell">
+        {{ figures.comparison|safe }}
+      </div>
+    </section>
+
+    <section class="panel" id="predictor">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow" data-i18n="live_prediction">Live Prediction</p>
+          <h2 data-i18n="prediction_subtitle">Use Simple Mode for quick prediction or Advanced Mode for expert analysis</h2>
+        </div>
+        <div class="formula-chip" data-i18n="risk_formula">Risk Score = Sum(Weight * Factor Score)</div>
+      </div>
+
+      <div class="predictor-layout">
+        <form id="prediction-form" class="form-card">
+          <div class="mode-switch" role="tablist" aria-label="Prediction mode">
+            <button type="button" class="mode-button is-active" data-mode="simple" data-i18n="simple_mode">Simple Mode</button>
+            <button type="button" class="mode-button" data-mode="advanced" data-i18n="advanced_mode">Advanced Mode</button>
+          </div>
+
+          <div id="simple-mode" class="mode-panel is-active">
+            <div class="simple-intro">
+              <h3 data-i18n="farmer_friendly">Farmer-friendly input</h3>
+              <p data-i18n="simple_intro">Pick a country, direction, and broad field conditions. The system will auto-fill technical values from dataset-based regional averages plus location-aware climate adjustments.</p>
+            </div>
+
+            <div class="form-grid">
+              <label>
+                <span data-i18n="country">Country</span>
+                <select id="simple-country">
+                  {% for country in location_profiles.keys() %}
+                  <option value="{{ country }}">{{ country }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="direction">Direction</span>
+                <select id="simple-direction">
+                  <option value="North" data-i18n="north">North</option>
+                  <option value="South" selected data-i18n="south">South</option>
+                  <option value="East" data-i18n="east">East</option>
+                  <option value="West" data-i18n="west">West</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="crop">Crop</span>
+                <select id="simple-crop">
+                  {% for crop in options.crop_types %}
+                  <option value="{{ crop }}">{{ crop }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="rain_situation">Rain Situation</span>
+                <select id="simple-rain">
+                  <option value="normal" data-i18n="normal">Normal</option>
+                  <option value="low" data-i18n="low_rain">Low Rain</option>
+                  <option value="high" data-i18n="heavy_rain">Heavy Rain</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="fertilizer_level">Fertilizer Level</span>
+                <select id="simple-fertilizer">
+                  <option value="medium" data-i18n="balanced">Balanced</option>
+                  <option value="low" data-i18n="low">Low</option>
+                  <option value="high" data-i18n="high">High</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="pest_situation">Pest Situation</span>
+                <select id="simple-pest">
+                  <option value="low" data-i18n="low">Low</option>
+                  <option value="medium" data-i18n="medium">Medium</option>
+                  <option value="high" data-i18n="high">High</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="simple-preview">
+              <p class="eyebrow" data-i18n="autofilled_profile">Auto-filled Technical Profile</p>
+              <div id="simple-preview-card" class="simple-preview-card"></div>
+            </div>
+          </div>
+
+          <div id="advanced-mode" class="mode-panel">
+            <label class="full-width">
+              <span data-i18n="select_dataset_record">Select Dataset Record</span>
+              <select name="dataset_row_id" id="dataset-row-select">
+                <option value="" data-i18n="use_live_input">Use only live input</option>
+                {% for record in dataset_records %}
+                <option value="{{ record.row_id }}">{{ record.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <p class="help-text" data-i18n="advanced_help">
+              Advanced Mode keeps the detailed scientific parameters for research, lab values, and comparative testing.
+            </p>
+
+            <div class="form-grid">
+              <label>
+                <span data-i18n="crop_type">Crop Type</span>
+                <select name="crop_type">
+                  {% for crop in options.crop_types %}
+                  <option value="{{ crop }}">{{ crop }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="region">Region</span>
+                <select name="region">
+                  {% for region in options.regions %}
+                  <option value="{{ region }}">{{ region }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="soil_type">Soil Type</span>
+                <select name="soil_type">
+                  {% for soil in options.soil_types %}
+                  <option value="{{ soil }}">{{ soil }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="rainfall_mm">Rainfall (mm)</span>
+                <span class="input-tip">How much rain the field received in millimetres.</span>
+                <input type="number" step="0.1" name="rainfall_mm" value="850">
+              </label>
+
+              <label>
+                <span data-i18n="temperature_c">Temperature (C)</span>
+                <span class="input-tip">Approximate daytime field temperature in Celsius.</span>
+                <input type="number" step="0.1" name="temperature_c" value="27">
+              </label>
+
+              <label>
+                <span data-i18n="humidity_pct">Humidity (%)</span>
+                <span class="input-tip">Moisture level in the surrounding air.</span>
+                <input type="number" step="0.1" name="humidity_pct" value="72">
+              </label>
+
+              <label>
+                <span data-i18n="soil_ph">Soil pH</span>
+                <span class="input-tip">Acidity or alkalinity of the soil. Neutral is around 7.</span>
+                <input type="number" step="0.1" name="soil_ph" value="6.4">
+              </label>
+
+              <label>
+                <span data-i18n="nitrogen">Nitrogen (kg/ha)</span>
+                <span class="input-tip">Available nitrogen in the field or planned nutrient level.</span>
+                <input type="number" step="0.1" name="nitrogen_kg_ha" value="96">
+              </label>
+
+              <label>
+                <span data-i18n="phosphorus">Phosphorus (kg/ha)</span>
+                <span class="input-tip">Phosphorus support for root growth and crop development.</span>
+                <input type="number" step="0.1" name="phosphorus_kg_ha" value="54">
+              </label>
+
+              <label>
+                <span data-i18n="potassium">Potassium (kg/ha)</span>
+                <span class="input-tip">Potassium support for crop strength and water balance.</span>
+                <input type="number" step="0.1" name="potassium_kg_ha" value="67">
+              </label>
+
+              <label>
+                <span data-i18n="pest_risk">Pest Risk (0-10)</span>
+                <span class="input-tip">0 means almost no pressure, 10 means severe pest pressure.</span>
+                <input type="number" step="0.1" min="0" max="10" name="pest_risk" value="3.5">
+              </label>
+            </div>
+          </div>
+
+          <div id="validation-box" class="validation-box"></div>
+
+          <div class="form-actions">
+            <button type="submit" class="button primary" data-i18n="predict_yield">Predict Yield</button>
+            <button type="button" id="recommend-crop" class="button secondary" data-i18n="recommend_best_crop">Recommend Best Crop</button>
+            <button type="button" id="fill-example" class="button secondary" data-i18n="load_example">Load Example</button>
+            <button type="button" id="reset-form" class="button secondary">Clear and Start New Prediction</button>
+          </div>
+        </form>
+
+        <aside class="result-card">
+          <p class="eyebrow" data-i18n="prediction_output">Prediction Output</p>
+          <div id="result" class="result-panel">
+            <div class="result-placeholder" data-i18n="result_placeholder">
+              Submit the form to calculate yield potential and risk.
+            </div>
+          </div>
+          <div class="export-actions">
+            <button type="button" id="download-report" class="button secondary">Download Report (PDF Friendly)</button>
+            <button type="button" id="save-chart-image" class="button secondary">Save Trend Chart Image</button>
+          </div>
+        </aside>
+      </div>
+
+      <div class="compare-panel">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Scenario Lab</p>
+            <h3>Compare Two Scenarios</h3>
+          </div>
+        </div>
+        <div class="compare-grid">
+          <article class="compare-card">
+            <p class="eyebrow">Current</p>
+            <div id="compare-current" class="compare-placeholder">Run a prediction to capture the current scenario.</div>
+          </article>
+          <article class="compare-card">
+            <p class="eyebrow">Improved</p>
+            <div id="compare-improved" class="compare-placeholder">Use the compare button after prediction to test a better scenario.</div>
+          </article>
+        </div>
+        <div class="compare-actions">
+          <button type="button" id="compare-scenarios" class="button secondary">Compare Current vs Improved</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow" data-i18n="prediction_history">Prediction History</p>
+          <h2 data-i18n="recent_predictions">Your recent prediction results</h2>
+        </div>
+      </div>
+      <div id="history" class="history-list">
+        <div class="history-empty" data-i18n="history_empty">Your prediction history will appear here.</div>
+      </div>
+    </section>
+
+    <section class="panel charts-grid">
+      <div class="chart-card">
+        <div id="yield-chart-container">{{ figures.yield_by_crop|safe }}</div>
+      </div>
+      <div class="chart-card">
+        <div id="risk-chart-container">{{ figures.risk_distribution|safe }}</div>
+      </div>
+      <div class="chart-card full">
+        <div id="trend-chart-container">{{ figures.trend|safe }}</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow" data-i18n="dataset_preview">Dataset Preview</p>
+          <h2 data-i18n="example_records">Example records used for training</h2>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Crop</th>
+              <th>Region</th>
+              <th>Soil</th>
+              <th>Rainfall</th>
+              <th>Temp</th>
+              <th>Humidity</th>
+              <th>Yield</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in latest_rows %}
+            <tr>
+              <td>{{ row.crop_type }}</td>
+              <td>{{ row.region }}</td>
+              <td>{{ row.soil_type }}</td>
+              <td>{{ row.rainfall_mm }}</td>
+              <td>{{ row.temperature_c }}</td>
+              <td>{{ row.humidity_pct }}</td>
+              <td>{{ row.yield_ton_per_hectare }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <button type="button" id="assistant-fab" class="assistant-fab" aria-label="Open assistant">
+      Assistant
+    </button>
+
+    <div id="assistant-chatbot" class="assistant-chatbot">
+      <div class="assistant-chatbot-card">
+        <div class="assistant-chatbot-header">
+          <div>
+            <p class="eyebrow">Assistant</p>
+            <h3>Use Current Conditions</h3>
+            <p>Answer in simple farm language and let the system prepare the predictor for you.</p>
+          </div>
+          <button type="button" id="assistant-close" class="assistant-close" aria-label="Close assistant">x</button>
+        </div>
+        <div class="assistant-grid">
+          <label>
+            <span>Rainfall today</span>
+            <select id="assistant-rain">
+              <option value="normal">Normal</option>
+              <option value="low">Low</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label>
+            <span>Pest issue</span>
+            <select id="assistant-pest">
+              <option value="low">No major issue</option>
+              <option value="medium">Some signs</option>
+              <option value="high">Strong issue</option>
+            </select>
+          </label>
+          <label>
+            <span>Soil if known</span>
+            <select id="assistant-soil">
+              <option value="">Use dataset default</option>
+              {% for soil in options.soil_types %}
+              <option value="{{ soil }}">{{ soil }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>Fertilizer condition</span>
+            <select id="assistant-fertilizer">
+              <option value="medium">Balanced</option>
+              <option value="low">Needs support</option>
+              <option value="high">Well managed</option>
+            </select>
+          </label>
+        </div>
+        <div class="assistant-actions">
+          <button type="button" id="apply-assistant" class="button secondary">Use Current Conditions</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    window.cropAppDefaults = {
+      crop_type: "Rice",
+      region: "South",
+      soil_type: "Loamy",
+      rainfall_mm: 1100,
+      temperature_c: 28,
+      humidity_pct: 80,
+      soil_ph: 6.2,
+      nitrogen_kg_ha: 105,
+      phosphorus_kg_ha: 58,
+      potassium_kg_ha: 72,
+      pest_risk: 2.8
+    };
+    window.simpleProfiles = {{ simple_profiles|tojson }};
+    window.locationProfiles = {{ location_profiles|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

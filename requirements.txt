@@ -1,0 +1,7 @@
+flask
+pandas
+numpy
+scikit-learn
+plotly
+gunicorn
+psycopg2-binary
